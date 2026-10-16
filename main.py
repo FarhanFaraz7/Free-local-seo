@@ -1,21 +1,20 @@
-import os
 import requests
 import json
 import google.generativeai as genai
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+# 1. API Keys Configuration
 SERPER_API_KEY = "4dc18602c17b81736f1218effc7e86c8b4a74129"
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = "AIzaSyC1xS7zAhlZSJ2PGRjO42nRS-ZCnLRx5g" 
 
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    ai_model = genai.GenerativeModel('gemini-1.5-flash')
-else:
-    ai_model = None
+# Gemini Configuration
+genai.configure(api_key=GEMINI_API_KEY)
+ai_model = genai.GenerativeModel('gemini-1.5-flash')
 
 app = FastAPI()
 
+# Live hosting aur WordPress connection ke liye CORS bypass setup
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -24,15 +23,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
-def home():
-    return {"status": "Live Maps SEO API Engine Running"}
-
 @app.get("/api/v1/audit")
 def audit_local_business(business_name: str, city: str):
-    if not ai_model:
-        raise HTTPException(status_code=500, detail="Gemini API Key missing.")
-        
     url = "https://serper.dev"
     payload = json.dumps({"q": f"{business_name} in {city}"})
     headers = {
@@ -45,7 +37,7 @@ def audit_local_business(business_name: str, city: str):
         maps_data = response.json()
         
         if "maps" not in maps_data or len(maps_data["maps"]) == 0:
-            raise HTTPException(status_code=404, detail="Business not found.")
+            raise HTTPException(status_code=404, detail="Business not found on Google Maps")
             
         business = maps_data["maps"]
         
@@ -58,7 +50,7 @@ def audit_local_business(business_name: str, city: str):
         Category: {business.get('category', 'Not Specified')}
         Address: {business.get('address', 'N/A')}
         
-        Format the response in clean HTML tags (like <h3>, <p>, <ul>, <li>) without markdown blocks.
+        Format the response in clean HTML tags (like <h3>, <p>, <ul>, <li>) without markdown code blocks.
         Include:
         1. An assessment of their current rating and local presence.
         2. A perfectly optimized 750-character GMB Business Description including local keywords based on their category.
