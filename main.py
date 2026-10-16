@@ -23,6 +23,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Vercel Root Handler: Yeh check karne ke liye ke server live hai ya nahi
+@app.get("/")
+def read_root():
+    return {"status": "success", "message": "Local SEO API Server is operational"}
+
 @app.get("/api/v1/audit")
 def audit_local_business(business_name: str, city: str):
     url = "https://serper.dev"
@@ -39,7 +44,7 @@ def audit_local_business(business_name: str, city: str):
         if "maps" not in maps_data or len(maps_data["maps"]) == 0:
             raise HTTPException(status_code=404, detail="Business not found on Google Maps")
             
-        business = maps_data["maps"]
+        business = maps_data["maps"][0]  # Array index selection standard
         
         prompt = f"""
         You are an expert Local SEO Consultant. Analyze the following Google Maps business profile and provide a professional audit report in simple English.
