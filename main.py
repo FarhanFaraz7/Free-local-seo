@@ -2,7 +2,7 @@ import requests
 import json
 import google.generativeai as genai
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 # 1. API Keys Configuration
 SERPER_API_KEY = "4dc18602c17b81736f1218effc7e86c8b4a74129"
@@ -14,19 +14,22 @@ ai_model = genai.GenerativeModel('gemini-1.5-flash')
 
 app = FastAPI()
 
-# Live hosting aur WordPress connection ke liye CORS bypass setup
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Standard Global Headers configuration for Vercel
+HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, PATCH, DELETE",
+    "Access-Control-Allow-Headers": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version",
+    "Access-Control-Allow-Credentials": "true"
+}
 
-# Vercel Root Handler: Yeh check karne ke liye ke server live hai ya nahi
+@app.options("/{rest_of_path:path}")
+def preflight_handler():
+    """Handles browser preflight OPTIONS requests gracefully"""
+    return JSONResponse(content={"status": "ok"}, headers=HEADERS)
+
 @app.get("/")
 def read_root():
-    return {"status": "success", "message": "Local SEO API Server is operational"}
+    return JSONResponse(content={"status": "success", "message": "Local SEO API Server is operational"}, headers=HEADERS)
 
 @app.get("/api/v1/audit")
 def audit_local_business(business_name: str, city: str):
@@ -42,9 +45,9 @@ def audit_local_business(business_name: str, city: str):
         maps_data = response.json()
         
         if "maps" not in maps_data or len(maps_data["maps"]) == 0:
-            raise HTTPException(status_code=404, detail="Business not found on Google Maps")
+            return JSONResponse(status_code=404, content={"success": False, "detail": "Business not found on Google Maps"}, headers=HEADERS)
             
-        business = maps_data["maps"][0]  # Array index selection standard
+        business = maps_data["maps"][0]  # Selection logic array index wrap up
         
         prompt = f"""
         You are an expert Local SEO Consultant. Analyze the following Google Maps business profile and provide a professional audit report in simple English.
@@ -64,14 +67,14 @@ def audit_local_business(business_name: str, city: str):
         
         ai_response = ai_model.generate_content(prompt)
         
-        return {
+        return JSONResponse(content={
             "success": True,
             "name": business.get('title'),
             "rating": business.get('rating', 'N/A'),
             "total_reviews": business.get('ratingCount', 0),
             "address": business.get('address', 'N/A'),
             "ai_report": ai_response.text
-        }
+        }, headers=HEADERS)
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(status_code=500, content={"success": False, "detail": str(e)}, headers=HEADERS)
